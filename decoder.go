@@ -2,7 +2,6 @@ package ufml
 
 import (
 	"io"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -121,7 +120,7 @@ func (d *Decoder) makeKeyStringOrCvtSlice(v interface{}) (interface{}, error) {
 		return sl, nil
 	}
 
-	return nil, errors.New("invalid map")
+	return nil, d.errorf("invalid map")
 }
 
 func (d *Decoder) tryCvtSlice(m map[interface{}]interface{}) ([]interface{}, bool) {
@@ -181,7 +180,7 @@ func (d *Decoder) decodeToMapOrV(n int) (interface{}, error) {
 			kvs = append(kvs, *s)
 		} else {
 			if len(paths) > 1 {
-				return nil, fmt.Errorf("invalid map")
+				return nil, d.errorf("invalid map")
 			}
 			return path, nil
 		}
@@ -321,14 +320,14 @@ func (d *Decoder) scanBracket() (interface{}, error) {
 	case d.s.Peek() == '>':
 		v = ""
 	default:
-		return nil, errors.New("invalid bracket value")
+		return nil, d.errorf("invalid bracket value")
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	if d.s.Peek() != '>' {
-		return nil, errors.Errorf("unexpected '%c'", d.s.Peek())
+		return nil, d.errorf("unexpected '%c'", d.s.Peek())
 	}
 
 	d.s.Next()
@@ -340,7 +339,7 @@ func (d *Decoder) isKwdChar(r rune) bool {
 	return strings.ContainsRune("truefalsenull", r)
 }
 
-func (d *Decoder) scanKwd() (interface{}, error) {
+func (d *Decoder) scanKwd() (Token, error) {
 	var s string
 	for d.isKwdChar(d.s.Peek()) {
 		s += string(d.s.Peek())
@@ -356,7 +355,7 @@ func (d *Decoder) scanKwd() (interface{}, error) {
 		return nil, nil
 	}
 
-	return nil, errors.Errorf("could not parse bracket value: %s", s)
+	return nil, d.errorf("could not parse bracket value: %s", s)
 }
 
 func (d *Decoder) isNumChar(r rune) bool {
@@ -389,7 +388,7 @@ func (d *Decoder) isEOLChar(r rune) bool {
 
 func (d *Decoder) scanEOL() (Token, error) {
 	if !d.isEOLChar(d.s.Peek()) {
-		return nil, errors.New("expected EOL character")
+		return nil, d.errorf("expected EOL character")
 	}
 
 	for d.isEOLChar(d.s.Peek()) {
@@ -397,4 +396,8 @@ func (d *Decoder) scanEOL() (Token, error) {
 	}
 
 	return EOL, nil
+}
+
+func (d *Decoder) errorf(format string, args ...interface{}) error {
+	return errors.Wrapf(errors.Errorf(format, args...), "%s", d.s.Pos())
 }
