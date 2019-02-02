@@ -22,12 +22,17 @@ func TestEncoder_Encode(t *testing.T) {
 		},
 		"nil map": {
 			v:       map[string]string(nil),
-			res:     "null",
+			res:     "<null>\n",
 			wantErr: false,
 		},
 		"nil pointer": {
 			v:       nil,
-			res:     "null",
+			res:     "<null>\n",
+			wantErr: false,
+		},
+		"nil pointer 2": {
+			v:       struct{ p *struct{} }{nil},
+			res:     "p <null>\n",
 			wantErr: false,
 		},
 	}

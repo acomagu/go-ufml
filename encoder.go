@@ -22,9 +22,15 @@ func NewEncoder(w io.Writer) *Encoder {
 }
 
 func (e *Encoder) Encode(v interface{}) error {
-	rows, err := toRows(reflect.ValueOf(v))
-	if err != nil {
-		return err
+	var rows [][]string
+	if v == nil {
+		rows = [][]string{{"<null>"}}
+	} else {
+		var err error
+		rows, err = toRows(reflect.ValueOf(v))
+		if err != nil {
+			return err
+		}
 	}
 
 	sw := toStrWithWidthNotTable(rows)
@@ -94,6 +100,11 @@ func toRows(rv reflect.Value) ([][]string, error) {
 
 	switch rv.Kind() {
 	case reflect.Ptr, reflect.Interface:
+		if nt, ok := notateNil(rv); ok {
+			ret = [][]string{{nt}}
+			break
+		}
+
 		var err error
 		ret, err = toRows(rv.Elem())
 		if err != nil {
@@ -101,6 +112,11 @@ func toRows(rv reflect.Value) ([][]string, error) {
 		}
 
 	case reflect.Slice:
+		if nt, ok := notateNil(rv); ok {
+			ret = [][]string{{nt}}
+			break
+		}
+
 		for i := 0; i < rv.Len(); i++ {
 			item := rv.Index(i)
 			prows, err := toRows(item)
@@ -113,6 +129,11 @@ func toRows(rv reflect.Value) ([][]string, error) {
 		}
 
 	case reflect.Map:
+		if nt, ok := notateNil(rv); ok {
+			ret = [][]string{{nt}}
+			break
+		}
+
 		for _, key := range rv.MapKeys() {
 			item := rv.MapIndex(key)
 			skey, ok := notatePrim(key)
@@ -156,9 +177,9 @@ func toRows(rv reflect.Value) ([][]string, error) {
 
 func notatePrim(rv reflect.Value) (string, bool) {
 	switch rv.Kind() {
-	case reflect.Ptr:
-		if rv.IsNil() {
-			return "<null>", true
+	case reflect.Ptr, reflect.Interface:
+		if nt, ok := notateNil(rv); ok {
+			return nt, true
 		}
 
 		return notatePrim(rv.Elem())
@@ -171,6 +192,14 @@ func notatePrim(rv reflect.Value) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// notateNil returns notation for nil value if possible. rv must be nillable type.
+func notateNil(rv reflect.Value) (string, bool) {
+	if rv.IsNil() {
+		return "<null>", true
+	}
+	return "", false
 }
 
 func prefixSl(p string, ss [][]string) [][]string {
